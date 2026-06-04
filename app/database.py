@@ -1,6 +1,6 @@
 import aiosqlite
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class DatabaseManager:
@@ -146,4 +146,121 @@ class DatabaseManager:
             params.append(record_id)
 
             await db.execute(query, params)
+            await db.commit()
+
+    async def create_queue(
+        self, teacher_id: int, subject_name: str, classroom: str
+    ) -> int:
+        """
+        Создает новую активную очередь и возвращает ее ID.
+
+        :param teacher_id: Уникальный ID преподавателя (telegram_id)
+        :param subject_name: Название предмета
+        :param classroom: Аудитория проведения защиты
+        :return: ID созданной очереди (int)
+        """
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT INTO active_queues (teacher_id, subject_name, classroom, status)
+                VALUES (?, ?, ?, 'active')
+                """,
+                (teacher_id, subject_name, classroom),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    async def call_next_student(self, queue_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Переводит следующего ожидающего студента в статус 'called' и возвращает данные о нем.
+
+         - Находит студента с наименьшей позицией в очереди и статусом 'waiting', обновляет его статус на 'called' и устанавливает called_at.
+         - Если таких студентов нет, возвращает None.
+
+         :param queue_id: ID очереди для вызова следующего студента
+         :return: Словарь с данными вызванного студента или None, если очередь пуста
+        """
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT record_id, student_id, position 
+                FROM queue_records 
+                WHERE queue_id = ? AND status = 'waiting' 
+                ORDER BY position ASC LIMIT 1
+                """,
+                (queue_id,),
+            ) as cursor:
+                student = await cursor.fetchone()
+
+            if student:
+                await self.update_student_status(student["record_id"], "called")
+                return dict(student)
+            return None
+
+    async def finish_defense(self, record_id: int, score: Optional[int] = None):
+        """
+        Завершает защиту, рассчитывает длительность и записывает данные в историю для переобучения.
+
+         - Получает данные о студенте и его вызове из queue_records и active_queues.
+         - Если студент не был вызван (called_at is NULL), просто обновляет статус на 'passed' и выходит.
+         - Если студент был вызван, рассчитывает длительность защиты и время с начала пары, затем записывает эти данные в таблицу defense_history вместе с оценкой (если предоставлена).
+         - Обновляет статус студента на 'passed' после завершения.
+
+         :param record_id: ID записи в queue_records для завершения защиты
+         :param score: Оценка за защиту (если предоставлена)
+        """
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            # 1. Получаем детали записи перед завершением
+            async with db.execute(
+                """
+                SELECT qr.queue_id, qr.student_id, qr.lab_id, qr.lab_difficulty, 
+                       qr.called_at, aq.teacher_id, aq.started_at
+                FROM queue_records qr
+                JOIN active_queues aq ON qr.queue_id = aq.queue_id
+                WHERE qr.record_id = ?
+                """,
+                (record_id,),
+            ) as cursor:
+                record = await cursor.fetchone()
+
+            if not record or not record["called_at"]:
+                await self.update_student_status(record_id, "passed")
+                return
+
+            # 2. Обновляем статус на passed
+            await self.update_student_status(record_id, "passed")
+
+            # 3. Рассчитываем длительность и время с начала пары (в минутах)
+            async with db.execute(
+                """
+                SELECT 
+                    (strftime('%s', 'now') - strftime('%s', ?)) / 60.0 as duration,
+                    (strftime('%s', 'now') - strftime('%s', ?)) / 60.0 as elapsed
+                """,
+                (record["called_at"], record["started_at"]),
+            ) as cursor:
+                times = await cursor.fetchone()
+
+            # 4. Записываем в defense_history
+            await db.execute(
+                """
+                INSERT INTO defense_history 
+                (teacher_id, student_id, lab_id, lab_difficulty, duration_minutes, time_elapsed_minutes, score)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record["teacher_id"],
+                    record["student_id"],
+                    record["lab_id"],
+                    record["lab_difficulty"],
+                    max(0.1, times["duration"]),
+                    times["elapsed"],
+                    score,
+                ),
+            )
             await db.commit()
