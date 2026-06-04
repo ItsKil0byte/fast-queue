@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
 
-from schemas import (
+from api.schemas import (
     CreateQueueRequest,
     FinishDefenseRequest,
     JoinQueueRequest,
@@ -11,8 +11,8 @@ from schemas import (
     BatchPredictRequest,
     BatchPredictResponse,
 )
-from database import DatabaseManager
-from engine import QueuePredictor
+from api.database import DatabaseManager
+from api.engine import QueuePredictor
 
 # Глобальные объекты для работы с БД и предикциями
 database = DatabaseManager()
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     await database.init_db()
 
     # Инициализация движка предсказаний
-    model_path = "app/models/ridge_v1.joblib"
+    model_path = "api/models/ridge_v1.joblib"
     if not os.path.exists(model_path):
         print(
             f"Модель не найдена по пути {model_path}. Будет использоваться резервная логика."

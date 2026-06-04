@@ -1,6 +1,6 @@
 import pandas as pd
 import joblib
-from schemas import PredictRequest, QueueItem
+from api.schemas import PredictRequest, QueueItem
 
 
 class QueuePredictor:

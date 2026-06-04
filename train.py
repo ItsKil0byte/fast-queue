@@ -65,7 +65,7 @@ def train():
     print(f"MAPE: {mape:.2%} (Цель < 20%)")
 
     # 8. Сохранение модели
-    model_dir = "app/models"
+    model_dir = "api/models"
     os.makedirs(model_dir, exist_ok=True)
 
     model_path = os.path.join(model_dir, "ridge_v1.joblib")
