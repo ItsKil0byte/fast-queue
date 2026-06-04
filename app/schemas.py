@@ -1,5 +1,28 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
+
+
+# --- Models for API Requests and Responses ---
+
+
+class FinishDefenseRequest(BaseModel):
+    record_id: int = Field(..., description="ID записи в очереди")
+    score: Optional[int] = Field(None, ge=1, le=5, description="Оценка (необязательно)")
+
+
+class CreateQueueRequest(BaseModel):
+    teacher_id: int = Field(..., description="Уникальный ID преподавателя")
+    subject_name: str = Field(..., description="Название предмета")
+    classroom: str = Field(..., description="Аудитория проведения защиты")
+
+
+class JoinQueueRequest(BaseModel):
+    queue_id: int = Field(..., description="ID очереди")
+    student_id: int = Field(..., description="Уникальный ID студента")
+    lab_id: int = Field(..., description="ID лабораторной работы")
+    lab_difficulty: int = Field(
+        ..., ge=1, le=3, description="Уровень сложности лабораторной работы (1-3)"
+    )
 
 
 # --- Single Prediction Models ---

@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 import os
 
 from schemas import (
+    CreateQueueRequest,
+    FinishDefenseRequest,
+    JoinQueueRequest,
     PredictRequest,
     PredictResponse,
     BatchPredictRequest,
@@ -88,6 +91,88 @@ async def predict_batch(request: BatchPredictRequest):
         "is_fallback": engine.model is None,
         "model_version": "ridge_v1" if engine.model else "fallback_v1",
     }
+
+
+@app.post("/api/v1/queue/create")
+async def create_queue(request: CreateQueueRequest):
+    """
+    Эндпоинт для создания новой очереди.
+
+    :param request: Данные для создания очереди
+    :return: ID созданной очереди и статус "active"
+    """
+
+    queue_id = await database.create_queue(
+        teacher_id=request.teacher_id,
+        subject_name=request.subject_name,
+        classroom=request.classroom,
+    )
+
+    return {"queue_id": queue_id, "status": "active"}
+
+
+@app.post("/api/v1/queue/add")
+async def join_queue(request: JoinQueueRequest):
+    """
+    Эндпоинт для добавления студента в очередь.
+
+    :param request: Данные для добавления студента в очередь
+    :return: Позиция студента в очереди и статус "waiting"
+    """
+
+    position = await database.add_student_to_queue(
+        queue_id=request.queue_id,
+        student_id=request.student_id,
+        lab_id=request.lab_id,
+        lab_difficulty=request.lab_difficulty,
+    )
+
+    return {"position": position, "status": "waiting"}
+
+
+@app.post("/api/v1/queue/next")
+async def call_next(queue_id: int):
+    """
+    Эндпоинт для вызова следующего студента из очереди.
+
+    :param queue_id: ID очереди
+    :return: Данные вызванного студента или сообщение о том, что очередь пуста
+    """
+
+    student = await database.call_next_student(queue_id)
+
+    if not student:
+        return {"message": "Очередь пуста", "student": None}
+
+    return {"message": "Студент вызван", "student": student}
+
+
+@app.post("/api/v1/queue/finish-student")
+async def finish_student(request: FinishDefenseRequest):
+    """
+    Эндпоинт для завершения защиты студента и сохранения данных для обучения ИИ.
+
+    :param request: Данные для завершения защиты студента
+    :return: Сообщение о том, что защита завершена и данные сохранены
+    """
+
+    await database.finish_defense(request.record_id, request.score)
+
+    return {"message": "Защита завершена, данные сохранены для обучения ИИ"}
+
+
+@app.post("/api/v1/queue/close")
+async def close_queue(queue_id: int):
+    """
+    Эндпоинт для закрытия очереди.
+
+    :param queue_id: ID очереди
+    :return: Сообщение о том, что очередь закрыта
+    """
+
+    await database.close_queue(queue_id)
+
+    return {"message": "Очередь закрыта"}
 
 
 if __name__ == "__main__":

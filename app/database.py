@@ -264,3 +264,25 @@ class DatabaseManager:
                 ),
             )
             await db.commit()
+
+    async def close_queue(self, queue_id: int):
+        """
+        Закрывает всю очередь (конец пары)
+            - Обновляет статус очереди на 'closed' в active_queues.
+            - Опционально: обновляет статус всех студентов, которые не успели защититься, на 'skipped' в queue_records.
+
+            :param queue_id: ID очереди для закрытия
+            :return: None
+        """
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE active_queues SET status = 'closed' WHERE queue_id = ?",
+                (queue_id,),
+            )
+            # Опционально: отменяем всех, кто не успел сдаться
+            await db.execute(
+                "UPDATE queue_records SET status = 'skipped' WHERE queue_id = ? AND status = 'waiting'",
+                (queue_id,),
+            )
+            await db.commit()
