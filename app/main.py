@@ -5,8 +5,10 @@ from schemas import (
     BatchPredictRequest,
     BatchPredictResponse,
 )
+from engine import QueuePredictor
 
 app = FastAPI(title="FastQueue Service")
+engine = QueuePredictor(model_path="path/to/model.pkl")
 
 
 @app.post("/api/v1/predict", response_model=PredictResponse)
@@ -15,9 +17,11 @@ async def predict(request: PredictRequest):
     Эндпоинт для предсказания времени защиты одного студента.
     """
 
+    duration = engine.predict_once(request)
+
     # TODO: Реализовать логику предсказания на основе входных данных
     return {
-        "predicted_duration_minutes": 15.0,
+        "predicted_duration_minutes": duration,
         "estimated_waiting_time_minutes": 30.0,
         "is_fallback": True,
         "model_version": "stub_v1",
