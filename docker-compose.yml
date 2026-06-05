@@ -11,7 +11,17 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-
+ 
+  tg_bot:
+    build:
+      context: ./bot
+    depends_on:
+      - api
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_SERVICE_URL=http://api:8000
+    restart: unless-stopped
+ 
 networks:
   default:
     name: fastqueue-network
