@@ -286,3 +286,48 @@ class DatabaseManager:
                 (queue_id,),
             )
             await db.commit()
+
+    async def save_user(
+        self,
+        telegram_id: int,
+        username: str | None,
+        full_name: str,
+        role: str,
+    ):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT OR REPLACE INTO users
+                (telegram_id, username, full_name, role)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    telegram_id,
+                    username,
+                    full_name,
+                    role,
+                ),
+            )
+
+            await db.commit()
+
+    async def get_user(
+        self,
+        telegram_id: int,
+    ):
+        async with aiosqlite.connect(self.db_path) as db:
+
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT *
+                FROM users
+                WHERE telegram_id = ?
+                """,
+                (telegram_id,),
+            ) as cursor:
+
+                row = await cursor.fetchone()
+
+                return dict(row) if row else None

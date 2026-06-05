@@ -24,6 +24,17 @@ class JoinQueueRequest(BaseModel):
         ..., ge=1, le=3, description="Уровень сложности лабораторной работы (1-3)"
     )
 
+class RegisterUserRequest(BaseModel):
+    telegram_id: int
+    username: str | None = None
+    full_name: str
+    role: str
+
+class UserResponse(BaseModel):
+    telegram_id: int
+    username: str | None = None
+    full_name: str
+    role: str
 
 # --- Single Prediction Models ---
 
