@@ -10,3 +10,4 @@ wheels/
 .venv
 .env
 data/fastqueue.db
+api/models/ridge_v1.joblib

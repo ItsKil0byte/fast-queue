@@ -130,6 +130,24 @@ async def join_queue(request: JoinQueueRequest):
     return {"position": position, "status": "waiting"}
 
 
+@app.get("/api/v1/queue/{queue_id}")
+async def get_queue(queue_id: int):
+    """
+    Эндпоинт для получения текущего состояния очереди.
+
+    :param queue_id: ID очереди
+    :return: Список студентов в очереди
+    """
+
+    queue = await database.get_active_queue(queue_id)
+
+    return {
+        "queue_id": queue_id,
+        "students": queue,
+        "count": len(queue),
+    }
+
+
 @app.post("/api/v1/queue/next")
 async def call_next(queue_id: int):
     """
