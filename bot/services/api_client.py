@@ -57,7 +57,62 @@ class FastQueueAPI:
                 return data
         except aiohttp.ClientError as e:
             raise APIError(0, f"Нет связи с сервисом: {e}") from e
- 
+        
+    async def _get(self, path: str) -> dict:
+        session = await self._get_session()
+        url = f"{self.base_url}{path}"
+
+        try:
+            async with session.get(url) as resp:
+                data = await resp.json()
+
+                if resp.status >= 400:
+                    raise APIError(
+                        resp.status,
+                        data.get("detail", str(data)),
+                    )
+
+                return data
+
+        except aiohttp.ClientError as e:
+            raise APIError(
+                0,
+                f"Нет связи с сервисом: {e}",
+            ) from e
+        
+    # ── Пользователи ────────────────────────────────────────────────────────
+
+    async def register_user(
+        self,
+        telegram_id: int,
+        username: str | None,
+        full_name: str,
+        role: str,
+    ) -> dict:
+        """
+        POST /api/v1/users/register
+        """
+
+        return await self._post(
+            "/api/v1/users/register",
+            {
+                "telegram_id": telegram_id,
+                "username": username,
+                "full_name": full_name,
+                "role": role,
+            },
+        )
+
+
+    async def get_user(self, telegram_id: int) -> dict:
+        """
+        GET /api/v1/users/{telegram_id}
+        """
+
+        return await self._get(
+            f"/api/v1/users/{telegram_id}"
+        )
+    
     # ── Очередь ──────────────────────────────────────────────────────────────
  
     async def create_queue(

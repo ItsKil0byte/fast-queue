@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
+from fastapi import HTTPException
 
 from api.schemas import (
     CreateQueueRequest,
@@ -10,6 +11,8 @@ from api.schemas import (
     PredictResponse,
     BatchPredictRequest,
     BatchPredictResponse,
+    RegisterUserRequest,
+    UserResponse,
 )
 from api.database import DatabaseManager
 from api.engine import QueuePredictor
@@ -91,6 +94,38 @@ async def predict_batch(request: BatchPredictRequest):
         "is_fallback": engine.model is None,
         "model_version": "ridge_v1" if engine.model else "fallback_v1",
     }
+
+
+@app.post("/api/v1/users/register")
+async def register_user(request: RegisterUserRequest):
+    """
+    Регистрация или обновление пользователя.
+    """
+
+    await database.save_user(
+        telegram_id=request.telegram_id,
+        username=request.username,
+        full_name=request.full_name,
+        role=request.role,
+    )
+
+    return {
+        "message": "Пользователь сохранён",
+        "telegram_id": request.telegram_id,
+    }
+
+
+@app.get("/api/v1/users/{telegram_id}", response_model=UserResponse)
+async def get_user(telegram_id: int):
+    user = await database.get_user(telegram_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="Пользователь не найден",
+        )
+
+    return user
 
 
 @app.post("/api/v1/queue/create")
