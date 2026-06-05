@@ -132,7 +132,56 @@ async def call_next_student(message: Message, state: FSMContext, api_url: str, b
     except Exception as e:
         logger.warning("Could not notify student %s: %s", student_id, e)
  
+
+@router.message(
+    TeacherSG.managing,
+    F.text == "📊 Статус очереди",
+)
+async def queue_status(
+    message: Message,
+    state: FSMContext,
+    api_url: str,
+):
+    data = await state.get_data()
+
+    queue_id = data.get("queue_id")
+
+    if not queue_id:
+        await message.answer("❌ Очередь не найдена")
+        return
+
+    api = FastQueueAPI(api_url)
+
+    try:
+        result = await api.get_queue(queue_id)
+
+    except APIError as e:
+        await message.answer(f"❌ Ошибка: {e.detail}")
+        return
+
+    finally:
+        await api.close()
+
+    students = result["students"]
+
+    if not students:
+        await message.answer("📭 Очередь пуста")
+        return
+
+    text = (
+        f"📊 <b>Статус очереди</b>\n\n"
+        f"👥 Ожидают: {len(students)}\n\n"
+    )
+
+    for student in students:
+        text += (
+            f"#{student['position']} | "
+            f"ЛР {student['lab_difficulty']}\n"
+        )
+
+    await message.answer(text)
  
+
 # ── Завершить защиту ──────────────────────────────────────────────────────────
  
 @router.message(TeacherSG.managing, F.text == "✅ Завершить защиту")

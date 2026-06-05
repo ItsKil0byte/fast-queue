@@ -133,6 +133,33 @@ class FastQueueAPI:
         # Этого эндпоинта нет в API — используем predict/batch чтобы получить
         # данные и время ожидания одновременно (см. get_queue_with_predictions)
         raise NotImplementedError
+    
+    async def get_queue(self, queue_id: int) -> dict:
+        """
+        GET /api/v1/queue/{queue_id}
+        Возвращает текущее состояние очереди.
+        """
+
+        session = await self._get_session()
+        url = f"{self.base_url}/api/v1/queue/{queue_id}"
+
+        try:
+            async with session.get(url) as resp:
+                data = await resp.json()
+
+                if resp.status >= 400:
+                    raise APIError(
+                        resp.status,
+                        data.get("detail", str(data)),
+                    )
+
+                return data
+
+        except aiohttp.ClientError as e:
+            raise APIError(
+                0,
+                f"Нет связи с сервисом: {e}",
+            ) from e
  
     async def predict_batch(
         self,
